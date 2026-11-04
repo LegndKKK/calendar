@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>本地日历</title>
+  <link rel="icon" href="/icon.ico">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">日</span>
+        <span class="brand-name">本地日历</span>
+      </div>
+
+      <div class="month-nav">
+        <button class="icon-btn" id="prevMonth" type="button" title="上个月" aria-label="上个月">‹</button>
+        <h1 id="monthLabel">加载中…</h1>
+        <button class="icon-btn" id="nextMonth" type="button" title="下个月" aria-label="下个月">›</button>
+        <button class="ghost-btn" id="todayBtn" type="button">今天</button>
+      </div>
+
+      <div class="topbar-actions">
+        <button class="status-pill" id="modeBadge" type="button" title="模型设置">本地解析</button>
+        <button class="ghost-btn" id="settingsBtn" type="button">设置</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="composer card" aria-label="自然语言添加日程">
+        <form class="composer-row" id="parseForm">
+          <input id="nlInput" type="text" autocomplete="off" maxlength="2000"
+                 placeholder="用一句话添加日程，例如：明天下午 3 点和张总开会，地点 3 楼会议室">
+          <button class="primary-btn" id="parseBtn" type="submit">解析日程</button>
+        </form>
+        <p class="composer-hint">支持「下周一上午 10 点评审」「3 天后交报告」「今晚 8 点看电影」等表达</p>
+        <div class="preview" id="preview" hidden></div>
+      </section>
+
+      <div class="layout">
+        <section class="calendar card" aria-label="月历">
+          <div class="weekdays" aria-hidden="true">
+            <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+        </section>
+
+        <aside class="agenda card" aria-label="日程列表">
+          <div class="agenda-head">
+            <div>
+              <p class="eyebrow">日程</p>
+              <h2 id="selectedDateLabel">今天</h2>
+            </div>
+            <button class="icon-btn add-btn" id="addBtn" type="button" title="手动添加日程" aria-label="手动添加日程">＋</button>
+          </div>
+
+          <ul class="event-list" id="eventList"></ul>
+          <div class="empty" id="emptyState" hidden>
+            <div class="empty-mark" aria-hidden="true">◌</div>
+            <p>这一天还没有日程</p>
+            <button class="ghost-btn" id="emptyAddBtn" type="button">添加一条</button>
+          </div>
+
+          <div class="upcoming" id="upcomingWrap">
+            <div class="upcoming-head">
+              <h3>即将到来</h3>
+              <span class="muted">未来 14 天</span>
+            </div>
+            <ul class="upcoming-list" id="upcomingList"></ul>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="eventDialog" class="dialog">
+    <form id="eventForm" class="dialog-form">
+      <div class="dialog-head">
+        <h2 id="eventDialogTitle">添加日程</h2>
+        <button class="icon-btn" type="button" id="closeEventDialog" aria-label="关闭">×</button>
+      </div>
+
+      <label class="field">
+        <span>标题</span>
+        <input id="fTitle" type="text" maxlength="200" required autocomplete="off" placeholder="例如：项目评审">
+      </label>
+
+      <div class="field-row">
+        <label class="field">
+          <span>开始</span>
+          <input id="fStart" type="datetime-local" step="300" required>
+        </label>
+        <label class="field">
+          <span>结束</span>
+          <input id="fEnd" type="datetime-local" step="300">
+        </label>
+      </div>
+
+      <label class="check">
+        <input id="fAllDay" type="checkbox">
+        <span>全天事件</span>
+      </label>
+
+      <label class="field">
+        <span>地点</span>
+        <input id="fLocation" type="text" maxlength="200" placeholder="可选">
+      </label>
+
+      <label class="field">
+        <span>备注</span>
+        <textarea id="fNotes" rows="3" maxlength="2000" placeholder="可选"></textarea>
+      </label>
+
+      <div class="dialog-actions">
+        <button class="ghost-btn" type="button" id="cancelEvent">取消</button>
+        <button class="primary-btn" type="submit" id="saveEventBtn">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog" class="dialog">
+    <form id="settingsForm" class="dialog-form">
+      <div class="dialog-head">
+        <h2>模型设置</h2>
+        <button class="icon-btn" type="button" id="closeSettings" aria-label="关闭">×</button>
+      </div>
+
+      <p class="hint">
+        兼容 OpenAI 接口的服务都可以使用，例如 DeepSeek、OpenAI、Moonshot，
+        以及本地 Ollama（<code>http://localhost:11434/v1</code>）。
+      </p>
+
+      <label class="field">
+        <span>Base URL</span>
+        <input id="sBaseUrl" type="url" required placeholder="https://api.deepseek.com/v1">
+      </label>
+
+      <label class="field">
+        <span>API Key</span>
+        <input id="sApiKey" type="password" autocomplete="off" placeholder="留空表示不修改">
+      </label>
+
+      <label class="field">
+        <span>模型名</span>
+        <input id="sModel" type="text" required placeholder="deepseek-chat">
+      </label>
+
+      <label class="check">
+        <input id="sClearKey" type="checkbox">
+        <span>清除已保存的 API Key</span>
+      </label>
+
+      <div class="settings-actions">
+        <button class="ghost-btn" type="button" id="testBtn">测试连接</button>
+        <span class="test-result" id="testResult" role="status"></span>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="ghost-btn" type="button" id="cancelSettings">取消</button>
+        <button class="primary-btn" type="submit" id="saveSettingsBtn">保存设置</button>
+      </div>
+
+      <div class="settings-footer">
+        <button class="danger-btn" type="button" id="shutdownBtn">退出应用</button>
+        <span class="muted">退出后服务停止，日程数据仍保存在本地</span>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
