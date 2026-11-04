@@ -12,17 +12,31 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
+from calendar_app.paths import resolve_data_dir
 from calendar_app.server import create_server
 
 
 def paths() -> tuple[Path, Path]:
-    """返回 (应用根目录, 静态资源目录)。"""
+    """返回 (系统数据目录, 静态资源目录)。"""
     if getattr(sys, "frozen", False):
-        root = Path(sys.executable).resolve().parent
-        resource_dir = Path(getattr(sys, "_MEIPASS", root))
-        return root, resource_dir / "static"
-    root = Path(__file__).resolve().parent
-    return root, root / "static"
+        app_root = Path(sys.executable).resolve().parent
+        resource_dir = Path(getattr(sys, "_MEIPASS", app_root))
+    else:
+        app_root = Path(__file__).resolve().parent
+        resource_dir = app_root
+
+    legacy_dir = app_root / "data"
+    try:
+        data_dir, migrated = resolve_data_dir(legacy_dir)
+    except OSError:
+        # 系统目录不可写时退回应用目录，保证应用仍能启动。
+        data_dir = legacy_dir
+        data_dir.mkdir(parents=True, exist_ok=True)
+        migrated = []
+
+    if migrated:
+        log(f"已将本地数据迁移到：{data_dir}（{', '.join(migrated)}）")
+    return data_dir, resource_dir / "static"
 
 
 def log(message: str) -> None:
@@ -36,9 +50,8 @@ def log(message: str) -> None:
 
 
 def show_error(message: str) -> None:
-    root, _ = paths()
     try:
-        data_dir = root / "data"
+        data_dir, _ = paths()
         data_dir.mkdir(parents=True, exist_ok=True)
         with (data_dir / "error.log").open("a", encoding="utf-8") as handle:
             handle.write(f"{message}\n")
@@ -94,7 +107,7 @@ def run() -> None:
     except Exception:
         pass
 
-    root, static_dir = paths()
+    data_dir, static_dir = paths()
     host = "127.0.0.1"
     start_port = int(os.environ.get("CALENDAR_PORT", "8765"))
 
@@ -107,7 +120,7 @@ def run() -> None:
 
     port = pick_port(host, start_port)
     try:
-        server = create_server(root, host, port, static_dir=static_dir)
+        server = create_server(data_dir, host, port, static_dir=static_dir, data_dir=data_dir)
     except OSError:
         # 并发启动时另一个实例可能刚好抢占了端口。
         running_port = find_running(host, start_port)
@@ -122,7 +135,7 @@ def run() -> None:
     log("=" * 58)
     log("  本地日历")
     log(f"  地址：{url}")
-    log(f"  数据：{root / 'data'}")
+    log(f"  数据：{data_dir}")
     log("  退出方式：页面右上角「设置」→「退出应用」")
     log("=" * 58)
 

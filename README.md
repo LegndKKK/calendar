@@ -26,14 +26,14 @@ python app.py
 
 ### 方式二：运行 exe
 
-执行 `build.bat` 构建，产物为 `dist\calendar.exe`。exe 为无控制台窗口模式，双击即可使用，首次启动会在同目录创建 `data\`。
+执行 `build.bat` 构建，产物为 `dist\calendar.exe`。exe 为无控制台窗口模式，双击即可使用。运行时数据保存在系统盘的用户目录，不会在 exe 旁边生成 `data\`。
 
 ### 启动与退出
 
 - 启动后浏览器会自动打开 <http://127.0.0.1:8765>。
 - 再次双击 `start.bat` 或 exe 不会重复启动服务，只会打开已有页面。
 - 退出：页面右上角「设置」→「退出应用」。
-- 无窗口模式启动失败时，错误会写入 `data\error.log` 并弹出提示框。
+- 无窗口模式启动失败时，错误会写入 `%LOCALAPPDATA%\LocalCalendar\error.log` 并弹出提示框。
 
 ## 配置模型
 
@@ -53,7 +53,7 @@ python app.py
 
 填好后点「测试连接」验证，再保存。保存后状态会变为「模型解析」。
 
-> API Key 以明文保存在本机 `data/config.json`，界面只显示掩码。请勿把 `data/` 目录分享或提交到版本库。
+> API Key 以明文保存在本机系统盘的 `%LOCALAPPDATA%\LocalCalendar\config.json`，界面只显示掩码。项目目录和 Git 仓库中不包含该文件。
 
 ## 使用方式
 
@@ -85,11 +85,20 @@ python app.py
 
 ## 数据与隐私
 
-- 数据库：`data/calendar.db`（SQLite）
-- 配置：`data/config.json`
+运行时数据默认保存在系统盘的用户应用目录：
+
+```text
+Windows: %LOCALAPPDATA%\LocalCalendar\
+├─ calendar.db    日历数据库
+├─ config.json    模型配置（含 API Key）
+└─ error.log      启动/运行错误日志
+```
+
 - 服务只监听 `127.0.0.1`，局域网无法访问
 - 除调用你配置的模型接口外，不向任何第三方发送数据
-- 备份日历只需复制 `data/calendar.db`
+- 项目目录和 Git 仓库不包含数据库与 API Key
+- 旧版本放在项目 `data\` 目录的数据，首次启动时会自动迁移到系统目录
+- 备份日历只需复制 `%LOCALAPPDATA%\LocalCalendar\calendar.db`
 
 ## 项目结构
 
@@ -102,6 +111,7 @@ calendar/
 │  ├─ llm.py              OpenAI 兼容接口调用
 │  ├─ parser.py           本地规则解析
 │  ├─ config.py           配置读写
+│  ├─ paths.py            系统数据目录与旧数据迁移
 │  └─ event_utils.py      数据校验与规范化
 ├─ static/
 │  ├─ index.html          页面
@@ -125,6 +135,7 @@ python app.py
 
 - `CALENDAR_PORT`：指定端口（默认 8765，占用时自动顺延）
 - `CALENDAR_NO_BROWSER=1`：启动时不自动打开浏览器
+- `CALENDAR_DATA_DIR`：覆盖系统数据目录（默认 `%LOCALAPPDATA%\LocalCalendar`）
 
 ## HTTP API
 

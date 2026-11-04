@@ -37,10 +37,11 @@ def create_server(
     host: str = "127.0.0.1",
     port: int = 8765,
     static_dir: Path | None = None,
+    data_dir: Path | None = None,
 ) -> ThreadingHTTPServer:
     base_dir = Path(base_dir)
     static_dir = Path(static_dir).resolve() if static_dir else (base_dir / "static").resolve()
-    data_dir = base_dir / "data"
+    data_dir = Path(data_dir) if data_dir else base_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     store = Store(data_dir / "calendar.db")
     config_path = data_dir / "config.json"

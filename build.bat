@@ -24,7 +24,7 @@ echo [3/3] 构建单文件 exe...
 
 echo.
 echo 构建完成：dist\calendar.exe
-echo 首次运行时会在 exe 同目录创建 data 文件夹。
+echo 运行时数据目录：%LOCALAPPDATA%\LocalCalendar
 pause
 exit /b 0
 

@@ -1,7 +1,42 @@
+# Python
 __pycache__/
 *.py[cod]
-.venv-build/
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+.venv-*/
+venv/
+
+# Build artifacts
 build/
 dist/
 *.spec
+
+# Runtime data (legacy in-project location; new location is %LOCALAPPDATA%\LocalCalendar)
 data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.log
+backups/
+*.bak
+*.tmp
+
+# Secrets and local-only configuration
+.env
+.env.*
+secrets.json
+config.local.json
+
+# OS / editor files
+Thumbs.db
+Desktop.ini
+.DS_Store
+.idea/
+.vscode/
+
+# Node
+node_modules/
