@@ -26,6 +26,7 @@ const els = {
   eventDialogTitle: $("#eventDialogTitle"),
   closeEventDialog: $("#closeEventDialog"),
   cancelEvent: $("#cancelEvent"),
+  deleteEventBtn: $("#deleteEventBtn"),
   saveEventBtn: $("#saveEventBtn"),
   fTitle: $("#fTitle"),
   fStart: $("#fStart"),
@@ -481,6 +482,7 @@ function openEventDialog({ mode, id = null, index = -1, event }) {
   els.fAllDay.checked = Boolean(event.all_day);
   els.fLocation.value = event.location || "";
   els.fNotes.value = event.notes || "";
+  els.deleteEventBtn.hidden = mode !== "edit" || id === null;
 
   if (!els.fStart.value) {
     const base = fromKey(state.selected);
@@ -561,14 +563,28 @@ async function saveEvent(event) {
   }
 }
 
-async function deleteEvent(event) {
-  if (!window.confirm(`删除「${event.title}」？`)) return;
+async function removeEvent(id, title) {
+  if (!window.confirm(`删除「${title}」？`)) return false;
   try {
-    await api(`/api/events/${event.id}`, { method: "DELETE" });
+    await api(`/api/events/${id}`, { method: "DELETE" });
     toast("日程已删除");
     await loadEvents();
+    return true;
   } catch (error) {
     toast(error.message, "error");
+    return false;
+  }
+}
+
+async function deleteEvent(event) {
+  await removeEvent(event.id, event.title);
+}
+
+async function deleteEditingEvent() {
+  if (editingId === null) return;
+  const title = els.fTitle.value.trim() || "这条日程";
+  if (await removeEvent(editingId, title)) {
+    els.eventDialog.close();
   }
 }
 
@@ -703,6 +719,7 @@ function bindEvents() {
   els.eventForm.addEventListener("submit", saveEvent);
   els.closeEventDialog.addEventListener("click", () => els.eventDialog.close());
   els.cancelEvent.addEventListener("click", () => els.eventDialog.close());
+  els.deleteEventBtn.addEventListener("click", deleteEditingEvent);
 
   els.settingsForm.addEventListener("submit", saveSettings);
   els.closeSettings.addEventListener("click", () => els.settingsDialog.close());

@@ -832,6 +832,14 @@ textarea:focus-visible,
   margin-top: 4px;
 }
 
+.dialog-delete {
+  margin-right: auto;
+}
+
+[hidden] {
+  display: none !important;
+}
+
 .hint {
   margin: 0 0 2px;
   padding: 10px 12px;
