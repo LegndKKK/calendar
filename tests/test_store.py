@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -52,6 +53,22 @@ class StoreTests(unittest.TestCase):
     def test_bulk(self):
         events = self.store.create_events([self._event("A"), self._event("B", "2026-11-08T09:00")])
         self.assertEqual(len(events), 2)
+
+    def test_backup_contains_events(self):
+        self.store.create_event(self._event())
+        backup_path = Path(self.temp.name) / "backup.db"
+
+        self.store.backup_to(backup_path)
+
+        self.assertTrue(backup_path.exists())
+        connection = sqlite3.connect(backup_path)
+        try:
+            count = connection.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+            title = connection.execute("SELECT title FROM events").fetchone()[0]
+        finally:
+            connection.close()
+        self.assertEqual(count, 1)
+        self.assertEqual(title, "会议")
 
 
 if __name__ == "__main__":

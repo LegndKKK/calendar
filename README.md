@@ -23,6 +23,7 @@ Local Calendar is a single-user, local-only tool. The packaged exe starts a loca
 - Parse multiple events from one sentence
 - Manual create, edit, and delete
 - Delete from the agenda list or directly from the edit dialog
+- One-click backup export (ZIP with the SQLite database and events JSON, no API key)
 - OpenAI-compatible model API (DeepSeek, OpenAI, Moonshot, local Ollama, etc.)
 - Built-in rule-based parser for when no API key is configured
 - SQLite storage in the system user-data directory
@@ -133,6 +134,26 @@ Windows: %LOCALAPPDATA%\LocalCalendar\
 - To back up, copy `%LOCALAPPDATA%\LocalCalendar\calendar.db`.
 - Override the location with `CALENDAR_DATA_DIR`.
 
+### Backup and restore
+
+Open **Settings** and click **Export Backup**. The app downloads a ZIP named `calendar-backup-YYYYMMDD-HHMMSS.zip` containing:
+
+```text
+calendar.db     consistent SQLite snapshot
+events.json     all events as JSON
+manifest.json   export time, version, and event count
+README.txt      restore instructions
+```
+
+The backup does **not** include `config.json`, so your API key is not exported.
+
+To restore:
+
+1. Quit Local Calendar.
+2. Back up the current `%LOCALAPPDATA%\LocalCalendar\calendar.db`.
+3. Replace it with `calendar.db` from the ZIP.
+4. Restart the app.
+
 ### Project structure
 
 ```text
@@ -184,6 +205,7 @@ Environment variables:
 | PATCH | `/api/events/{id}` | Update an event |
 | DELETE | `/api/events/{id}` | Delete an event |
 | POST | `/api/parse` | Parse text without saving |
+| GET | `/api/backup` | Download a ZIP backup |
 | POST | `/api/shutdown` | Stop the local server |
 
 ### License
@@ -205,6 +227,7 @@ MIT. See [LICENSE](LICENSE).
 - 一句话可解析多个日程
 - 手动新增、编辑、删除
 - 支持在日程列表中删除，也可在编辑弹窗中直接删除
+- 一键导出备份（ZIP：SQLite 数据库 + 日程 JSON，不含 API Key）
 - OpenAI 兼容接口（DeepSeek、OpenAI、Moonshot、本地 Ollama 等）
 - 未配置 API Key 时使用内置规则解析
 - SQLite 数据保存在系统盘的用户应用目录
@@ -315,6 +338,26 @@ Windows: %LOCALAPPDATA%\LocalCalendar\
 - 备份日历只需复制 `%LOCALAPPDATA%\LocalCalendar\calendar.db`
 - 可用 `CALENDAR_DATA_DIR` 覆盖数据目录
 
+### 备份与恢复
+
+打开「设置」，点击「导出备份」。应用会下载 `calendar-backup-YYYYMMDD-HHMMSS.zip`，包含：
+
+```text
+calendar.db     一致性 SQLite 快照
+events.json     全部日程 JSON
+manifest.json   导出时间、版本、日程数量
+README.txt      恢复说明
+```
+
+备份**不包含** `config.json`，因此不会导出 API Key。
+
+恢复方法：
+
+1. 退出本地日历
+2. 备份当前的 `%LOCALAPPDATA%\LocalCalendar\calendar.db`
+3. 用 ZIP 中的 `calendar.db` 替换
+4. 重新启动应用
+
 ### 项目结构
 
 ```text
@@ -366,6 +409,7 @@ python app.py
 | PATCH | `/api/events/{id}` | 修改日程 |
 | DELETE | `/api/events/{id}` | 删除日程 |
 | POST | `/api/parse` | 自然语言解析（不落库） |
+| GET | `/api/backup` | 下载 ZIP 备份 |
 | POST | `/api/shutdown` | 停止本地服务 |
 
 ### 许可证

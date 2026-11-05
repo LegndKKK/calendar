@@ -39,6 +39,7 @@ const els = {
   closeSettings: $("#closeSettings"),
   cancelSettings: $("#cancelSettings"),
   saveSettingsBtn: $("#saveSettingsBtn"),
+  exportBackupBtn: $("#exportBackupBtn"),
   shutdownBtn: $("#shutdownBtn"),
   sBaseUrl: $("#sBaseUrl"),
   sApiKey: $("#sApiKey"),
@@ -631,6 +632,41 @@ async function saveSettings(event) {
   }
 }
 
+async function exportBackup() {
+  els.exportBackupBtn.disabled = true;
+  try {
+    const response = await fetch("/api/backup");
+    if (!response.ok) {
+      let message = `导出失败（${response.status}）`;
+      try {
+        const data = await response.json();
+        if (data && data.error) message = data.error;
+      } catch {
+        // ignore
+      }
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const match = disposition.match(/filename="([^"]+)"/);
+    const filename = match ? match[1] : "calendar-backup.zip";
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast("备份已开始下载");
+  } catch (error) {
+    toast(error.message, "error");
+  } finally {
+    els.exportBackupBtn.disabled = false;
+  }
+}
+
 async function shutdownApp() {
   if (!window.confirm("退出本地日历？服务将停止，日程数据会保留。")) return;
   try {
@@ -725,6 +761,7 @@ function bindEvents() {
   els.closeSettings.addEventListener("click", () => els.settingsDialog.close());
   els.cancelSettings.addEventListener("click", () => els.settingsDialog.close());
   els.testBtn.addEventListener("click", testConnection);
+  els.exportBackupBtn.addEventListener("click", exportBackup);
   els.shutdownBtn.addEventListener("click", shutdownApp);
 
   els.fAllDay.addEventListener("change", () => {

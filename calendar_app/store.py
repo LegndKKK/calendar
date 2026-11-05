@@ -124,3 +124,11 @@ class Store:
         with closing(self._connect()) as conn, conn:
             cursor = conn.execute("DELETE FROM events WHERE id = ?", (event_id,))
         return cursor.rowcount > 0
+
+    def backup_to(self, destination: Path) -> None:
+        """用 SQLite 在线备份 API 生成一致性的数据库副本。"""
+        destination = Path(destination)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with closing(self._connect()) as source, closing(sqlite3.connect(destination)) as target:
+            source.backup(target)
+            target.commit()

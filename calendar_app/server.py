@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
+import io
 import json
 import mimetypes
 import re
 import sys
+import tempfile
 import threading
 import traceback
+import zipfile
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import llm, parser
+from . import __version__, llm, parser
 from .config import load_config, public_config, save_config
 from .event_utils import normalize_event, parse_datetime
 from .store import Store
@@ -61,6 +64,18 @@ def create_server(
 
         def _error(self, status: int, message: str) -> None:
             self._send_json({"error": message}, status)
+
+        def _send_bytes(
+            self, body: bytes, content_type: str, filename: str | None = None
+        ) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            if filename:
+                self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.end_headers()
+            self.wfile.write(body)
 
         def log_message(self, fmt: str, *args) -> None:
             if sys.stdout is not None:
@@ -161,6 +176,10 @@ def create_server(
                 self._json_body()
                 self._send_json({"ok": True})
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
+                return
+
+            if method == "GET" and path == "/api/backup":
+                self._send_backup()
                 return
 
             if method == "GET" and path == "/api/config":
@@ -306,6 +325,53 @@ def create_server(
                 "warning": warning,
                 "model": config.get("model") if source == "model" else None,
             }
+
+        def _send_backup(self) -> None:
+            now = datetime.now()
+            events = store.list_events()
+            exported_at = now.isoformat(timespec="seconds")
+            filename = f"calendar-backup-{now.strftime('%Y%m%d-%H%M%S')}.zip"
+            manifest = {
+                "app": "local-calendar",
+                "version": __version__,
+                "exported_at": exported_at,
+                "event_count": len(events),
+                "files": ["calendar.db", "events.json", "manifest.json", "README.txt"],
+            }
+            readme = (
+                "本地日历备份 / Local Calendar backup\n"
+                "====================================\n\n"
+                f"导出时间 / Exported: {exported_at}\n"
+                f"日程数量 / Events: {len(events)}\n\n"
+                "包含文件 / Files:\n"
+                "- calendar.db    SQLite 数据库 / SQLite database\n"
+                "- events.json   日程 JSON / events JSON\n"
+                "- manifest.json 备份信息 / metadata\n\n"
+                "恢复方法 / Restore:\n"
+                "1. 退出本地日历 / Quit Local Calendar\n"
+                "2. 备份当前数据库 / Back up the current database\n"
+                "3. 用本压缩包中的 calendar.db 替换 / Replace calendar.db with this one\n"
+                "   默认位置 / Default: %LOCALAPPDATA%\\LocalCalendar\\calendar.db\n"
+                "4. 重新启动 / Restart the app\n\n"
+                "注意：备份不包含 config.json，因此不包含 API Key。\n"
+                "Note: config.json and the API key are NOT included.\n"
+            )
+
+            buffer = io.BytesIO()
+            with tempfile.TemporaryDirectory() as temp_dir:
+                database_copy = Path(temp_dir) / "calendar.db"
+                store.backup_to(database_copy)
+                with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+                    archive.write(database_copy, "calendar.db")
+                    archive.writestr(
+                        "events.json", json.dumps(events, ensure_ascii=False, indent=2)
+                    )
+                    archive.writestr(
+                        "manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2)
+                    )
+                    archive.writestr("README.txt", readme)
+
+            self._send_bytes(buffer.getvalue(), "application/zip", filename)
 
         # ---------- 静态文件 ----------
         def _serve_static(self, path: str) -> None:
