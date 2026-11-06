@@ -9,6 +9,11 @@ const els = {
   todayBtn: $("#todayBtn"),
   settingsBtn: $("#settingsBtn"),
   modeBadge: $("#modeBadge"),
+  calendarViewBtn: $("#calendarViewBtn"),
+  interviewViewBtn: $("#interviewViewBtn"),
+  calendarView: $("#calendarView"),
+  interviewView: $("#interviewView"),
+  monthNav: $("#monthNav"),
   parseForm: $("#parseForm"),
   nlInput: $("#nlInput"),
   parseBtn: $("#parseBtn"),
@@ -47,6 +52,27 @@ const els = {
   sClearKey: $("#sClearKey"),
   testBtn: $("#testBtn"),
   testResult: $("#testResult"),
+  addCompanyBtn: $("#addCompanyBtn"),
+  addStageBtn: $("#addStageBtn"),
+  emptyAddCompanyBtn: $("#emptyAddCompanyBtn"),
+  interviewTable: $("#interviewTable"),
+  interviewTableWrap: $("#interviewTableWrap"),
+  interviewEmpty: $("#interviewEmpty"),
+  interviewDialog: $("#interviewDialog"),
+  interviewForm: $("#interviewForm"),
+  interviewEyebrow: $("#interviewEyebrow"),
+  interviewDialogTitle: $("#interviewDialogTitle"),
+  closeInterviewDialog: $("#closeInterviewDialog"),
+  cancelInterviewDialog: $("#cancelInterviewDialog"),
+  saveInterviewBtn: $("#saveInterviewBtn"),
+  deleteInterviewCellBtn: $("#deleteInterviewCellBtn"),
+  deleteCompanyBtn: $("#deleteCompanyBtn"),
+  iCompanyName: $("#iCompanyName"),
+  iCompanyInfo: $("#iCompanyInfo"),
+  iLink: $("#iLink"),
+  iContent: $("#iContent"),
+  iStatus: $("#iStatus"),
+  interviewCellFields: $("#interviewCellFields"),
   toast: $("#toast"),
 };
 
@@ -59,6 +85,16 @@ const state = {
   config: null,
   preview: [],
   previewMeta: null,
+  viewMode: "calendar",
+  interviews: { companies: [], stages: [], cells: [] },
+};
+
+const INTERVIEW_STATUS = {
+  待安排: "pending",
+  已安排: "scheduled",
+  已通过: "passed",
+  未通过: "failed",
+  已取消: "cancelled",
 };
 
 let dialogMode = "create";
@@ -66,6 +102,9 @@ let editingId = null;
 let previewIndex = -1;
 let loadSeq = 0;
 let toastTimer = null;
+let interviewMode = "cell";
+let interviewCompanyId = null;
+let interviewStage = null;
 
 /* ---------------- 基础工具 ---------------- */
 
@@ -719,6 +758,281 @@ async function testConnection() {
   }
 }
 
+/* ---------------- 面试时间线 ---------------- */
+
+function switchView(mode) {
+  if (mode !== "calendar" && mode !== "interview") return;
+  state.viewMode = mode;
+  const isCalendar = mode === "calendar";
+  els.calendarView.hidden = !isCalendar;
+  els.interviewView.hidden = isCalendar;
+  els.monthNav.hidden = !isCalendar;
+  els.calendarViewBtn.classList.toggle("active", isCalendar);
+  els.interviewViewBtn.classList.toggle("active", !isCalendar);
+
+  if (isCalendar) {
+    loadEvents().catch((error) => toast(error.message, "error"));
+  } else {
+    loadInterviews().catch((error) => toast(error.message, "error"));
+  }
+}
+
+async function loadInterviews() {
+  const data = await api("/api/interviews");
+  state.interviews = {
+    companies: data.companies || [],
+    stages: data.stages || [],
+    cells: data.cells || [],
+  };
+  renderInterviewTable();
+}
+
+function interviewCellFor(companyId, stage) {
+  return state.interviews.cells.find(
+    (cell) => cell.company_id === companyId && cell.stage === stage
+  );
+}
+
+function renderInterviewTable() {
+  const { companies, stages, cells } = state.interviews;
+  els.interviewTable.innerHTML = "";
+  const hasCompanies = companies.length > 0;
+  els.interviewEmpty.hidden = hasCompanies;
+  els.interviewTableWrap.hidden = !hasCompanies;
+  if (!hasCompanies) return;
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const corner = document.createElement("th");
+  corner.className = "corner";
+  corner.textContent = "阶段 / 公司";
+  headRow.append(corner);
+
+  companies.forEach((company) => {
+    const th = document.createElement("th");
+    th.className = "company-col";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "company-head";
+    button.title = "编辑公司信息";
+    button.dataset.companyId = String(company.id);
+    const name = document.createElement("span");
+    name.className = "company-name";
+    name.textContent = company.name;
+    button.append(name);
+    if (company.info) {
+      const info = document.createElement("span");
+      info.className = "company-snippet";
+      info.textContent = company.info;
+      button.append(info);
+    }
+    button.addEventListener("click", () =>
+      openInterviewDialog({ mode: "company-edit", companyId: company.id })
+    );
+    th.append(button);
+    headRow.append(th);
+  });
+  thead.append(headRow);
+  els.interviewTable.append(thead);
+
+  const tbody = document.createElement("tbody");
+  stages.forEach((stage) => {
+    const row = document.createElement("tr");
+    const stageHead = document.createElement("th");
+    stageHead.className = "stage-head";
+    stageHead.textContent = stage.name;
+    row.append(stageHead);
+
+    companies.forEach((company) => {
+      const cell = cells.find(
+        (item) => item.company_id === company.id && item.stage === stage.name
+      );
+      const td = document.createElement("td");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "interview-cell";
+      button.dataset.companyId = String(company.id);
+      button.dataset.stage = stage.name;
+
+      if (cell) {
+        button.classList.add(`status-${INTERVIEW_STATUS[cell.status] || "pending"}`);
+        button.title = `${cell.status}${cell.content ? ` · ${cell.content}` : ""}`;
+        const status = document.createElement("span");
+        status.className = "cell-status";
+        status.textContent = cell.status;
+        button.append(status);
+        if (cell.link) {
+          const link = document.createElement("span");
+          link.className = "cell-link";
+          link.textContent = "链接";
+          button.append(link);
+        }
+      } else {
+        button.classList.add("empty-cell");
+        button.title = "点击填写";
+      }
+
+      const summary = document.createElement("span");
+      summary.className = "cell-summary";
+      if (cell && cell.content) {
+        summary.textContent =
+          cell.content.length > 30 ? `${cell.content.slice(0, 30)}…` : cell.content;
+      } else if (cell && cell.link) {
+        summary.textContent = "已填写面试链接";
+      } else if (cell) {
+        summary.textContent = "点击补充内容";
+      } else {
+        summary.textContent = "＋";
+        summary.classList.add("cell-plus");
+      }
+      button.append(summary);
+
+      button.addEventListener("click", () =>
+        openInterviewDialog({ mode: "cell", companyId: company.id, stage: stage.name })
+      );
+      td.append(button);
+      row.append(td);
+    });
+    tbody.append(row);
+  });
+  els.interviewTable.append(tbody);
+}
+
+function openInterviewDialog({ mode, companyId = null, stage = null }) {
+  const company = state.interviews.companies.find((item) => item.id === companyId) || null;
+  if (mode !== "company-create" && !company) {
+    toast("公司不存在，请刷新后重试", "error");
+    return;
+  }
+
+  interviewMode = mode;
+  interviewCompanyId = companyId;
+  interviewStage = stage;
+
+  const isCell = mode === "cell";
+  const cell = isCell ? interviewCellFor(companyId, stage) : null;
+  els.interviewCellFields.hidden = !isCell;
+  els.deleteInterviewCellBtn.hidden = !isCell || !cell;
+  els.deleteCompanyBtn.hidden = mode !== "company-edit";
+  els.iCompanyName.readOnly = isCell;
+
+  if (isCell) {
+    els.interviewEyebrow.textContent = "面试记录";
+    els.interviewDialogTitle.textContent = `${company.name} · ${stage}`;
+    els.iCompanyName.value = company.name;
+    els.iCompanyInfo.value = company.info || "";
+    els.iLink.value = cell ? cell.link : "";
+    els.iContent.value = cell ? cell.content : "";
+    els.iStatus.value = cell ? cell.status : "待安排";
+  } else if (mode === "company-create") {
+    els.interviewEyebrow.textContent = "公司信息";
+    els.interviewDialogTitle.textContent = "添加公司";
+    els.iCompanyName.value = "";
+    els.iCompanyInfo.value = "";
+  } else {
+    els.interviewEyebrow.textContent = "公司信息";
+    els.interviewDialogTitle.textContent = company.name;
+    els.iCompanyName.value = company.name;
+    els.iCompanyInfo.value = company.info || "";
+  }
+
+  els.interviewDialog.showModal();
+  setTimeout(() => (isCell ? els.iLink : els.iCompanyName).focus(), 30);
+}
+
+async function saveInterview(event) {
+  event.preventDefault();
+  const name = els.iCompanyName.value.trim();
+  const info = els.iCompanyInfo.value.trim();
+  if (!name) {
+    toast("请填写公司名称", "error");
+    return;
+  }
+
+  els.saveInterviewBtn.disabled = true;
+  try {
+    if (interviewMode === "cell") {
+      await api(`/api/interviews/companies/${interviewCompanyId}`, {
+        method: "PATCH",
+        body: { info },
+      });
+      await api("/api/interviews/cells", {
+        method: "PUT",
+        body: {
+          company_id: interviewCompanyId,
+          stage: interviewStage,
+          link: els.iLink.value.trim(),
+          content: els.iContent.value.trim(),
+          status: els.iStatus.value,
+        },
+      });
+      toast("面试记录已保存");
+    } else if (interviewMode === "company-create") {
+      await api("/api/interviews/companies", {
+        method: "POST",
+        body: { name, info },
+      });
+      toast("公司已添加");
+    } else {
+      await api(`/api/interviews/companies/${interviewCompanyId}`, {
+        method: "PATCH",
+        body: { name, info },
+      });
+      toast("公司信息已保存");
+    }
+    els.interviewDialog.close();
+    await loadInterviews();
+  } catch (error) {
+    toast(error.message, "error");
+  } finally {
+    els.saveInterviewBtn.disabled = false;
+  }
+}
+
+async function deleteInterviewCell() {
+  if (interviewCompanyId === null || !interviewStage) return;
+  if (!window.confirm("删除这条面试记录？")) return;
+  try {
+    await api(
+      `/api/interviews/cells?company_id=${interviewCompanyId}&stage=${encodeURIComponent(interviewStage)}`,
+      { method: "DELETE" }
+    );
+    els.interviewDialog.close();
+    toast("面试记录已删除");
+    await loadInterviews();
+  } catch (error) {
+    toast(error.message, "error");
+  }
+}
+
+async function deleteInterviewCompany() {
+  if (interviewCompanyId === null) return;
+  const company = state.interviews.companies.find((item) => item.id === interviewCompanyId);
+  if (!window.confirm(`删除「${company ? company.name : "该公司"}」及其所有面试记录？`)) return;
+  try {
+    await api(`/api/interviews/companies/${interviewCompanyId}`, { method: "DELETE" });
+    els.interviewDialog.close();
+    toast("公司已删除");
+    await loadInterviews();
+  } catch (error) {
+    toast(error.message, "error");
+  }
+}
+
+async function addInterviewStage() {
+  const name = window.prompt("新阶段名称，例如：笔试、HR 面、终面");
+  if (name === null) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  try {
+    await api("/api/interviews/stages", { method: "POST", body: { name: trimmed } });
+    toast("阶段已添加");
+    await loadInterviews();
+  } catch (error) {
+    toast(error.message, "error");
+  }
+}
+
 /* ---------------- 事件绑定与初始化 ---------------- */
 
 function shiftMonth(delta) {
@@ -749,6 +1063,21 @@ function bindEvents() {
   els.settingsBtn.addEventListener("click", openSettings);
   els.modeBadge.addEventListener("click", openSettings);
 
+  els.calendarViewBtn.addEventListener("click", () => switchView("calendar"));
+  els.interviewViewBtn.addEventListener("click", () => switchView("interview"));
+  els.addCompanyBtn.addEventListener("click", () =>
+    openInterviewDialog({ mode: "company-create" })
+  );
+  els.emptyAddCompanyBtn.addEventListener("click", () =>
+    openInterviewDialog({ mode: "company-create" })
+  );
+  els.addStageBtn.addEventListener("click", addInterviewStage);
+  els.interviewForm.addEventListener("submit", saveInterview);
+  els.closeInterviewDialog.addEventListener("click", () => els.interviewDialog.close());
+  els.cancelInterviewDialog.addEventListener("click", () => els.interviewDialog.close());
+  els.deleteInterviewCellBtn.addEventListener("click", deleteInterviewCell);
+  els.deleteCompanyBtn.addEventListener("click", deleteInterviewCompany);
+
   els.addBtn.addEventListener("click", () => openEventDialog({ mode: "create", event: {} }));
   els.emptyAddBtn.addEventListener("click", () => openEventDialog({ mode: "create", event: {} }));
 
@@ -778,7 +1107,7 @@ function bindEvents() {
     }
   });
 
-  [els.eventDialog, els.settingsDialog].forEach((dialog) => {
+  [els.eventDialog, els.interviewDialog, els.settingsDialog].forEach((dialog) => {
     dialog.addEventListener("click", (event) => {
       if (event.target === dialog) dialog.close();
     });

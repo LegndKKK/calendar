@@ -15,7 +15,12 @@
         <span class="brand-name">本地日历</span>
       </div>
 
-      <div class="month-nav">
+      <nav class="view-switch" aria-label="视图切换">
+        <button id="calendarViewBtn" type="button" class="active">日历</button>
+        <button id="interviewViewBtn" type="button">面试时间线</button>
+      </nav>
+
+      <div class="month-nav" id="monthNav">
         <button class="icon-btn" id="prevMonth" type="button" title="上个月" aria-label="上个月">‹</button>
         <h1 id="monthLabel">加载中…</h1>
         <button class="icon-btn" id="nextMonth" type="button" title="下个月" aria-label="下个月">›</button>
@@ -29,6 +34,7 @@
     </header>
 
     <main class="main">
+      <div id="calendarView">
       <section class="composer card" aria-label="自然语言添加日程">
         <form class="composer-row" id="parseForm">
           <input id="nlInput" type="text" autocomplete="off" maxlength="2000"
@@ -72,6 +78,32 @@
           </div>
         </aside>
       </div>
+      </div>
+
+      <section class="interview card" id="interviewView" hidden aria-label="面试时间线">
+        <div class="interview-head">
+          <div>
+            <p class="eyebrow">TIMELINE</p>
+            <h2>面试进度</h2>
+            <p class="muted">横轴为公司，纵轴为面试阶段。点击单元格填写面试链接、公司信息和面试内容。</p>
+          </div>
+          <div class="interview-actions">
+            <button class="ghost-btn" id="addStageBtn" type="button">＋ 添加阶段</button>
+            <button class="primary-btn" id="addCompanyBtn" type="button">＋ 添加公司</button>
+          </div>
+        </div>
+
+        <div class="interview-table-wrap" id="interviewTableWrap">
+          <table class="interview-table" id="interviewTable"></table>
+        </div>
+        <p class="interview-scroll-hint muted">左右滑动查看更多公司 →</p>
+
+        <div class="empty interview-empty" id="interviewEmpty" hidden>
+          <div class="empty-mark" aria-hidden="true">▦</div>
+          <p>还没有公司，先添加一家公司开始记录面试进度</p>
+          <button class="ghost-btn" id="emptyAddCompanyBtn" type="button">添加公司</button>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -117,6 +149,57 @@
         <button class="danger-btn dialog-delete" type="button" id="deleteEventBtn" hidden>删除日程</button>
         <button class="ghost-btn" type="button" id="cancelEvent">取消</button>
         <button class="primary-btn" type="submit" id="saveEventBtn">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="interviewDialog" class="drawer-dialog">
+    <form id="interviewForm" class="drawer-form">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow" id="interviewEyebrow">面试记录</p>
+          <h2 id="interviewDialogTitle">面试记录</h2>
+        </div>
+        <button class="icon-btn" type="button" id="closeInterviewDialog" aria-label="关闭">×</button>
+      </div>
+
+      <label class="field">
+        <span>公司名称</span>
+        <input id="iCompanyName" type="text" maxlength="100" required autocomplete="off">
+      </label>
+
+      <label class="field">
+        <span>公司信息</span>
+        <textarea id="iCompanyInfo" rows="3" maxlength="5000" placeholder="公司地址、岗位、薪资范围、联系人等"></textarea>
+      </label>
+
+      <div id="interviewCellFields">
+        <label class="field">
+          <span>面试链接</span>
+          <input id="iLink" type="url" maxlength="1000" placeholder="https://...">
+        </label>
+        <label class="field">
+          <span>面试内容</span>
+          <textarea id="iContent" rows="6" maxlength="5000" placeholder="面试问题、回答情况、反馈、准备笔记..."></textarea>
+        </label>
+        <label class="field">
+          <span>状态</span>
+          <select id="iStatus">
+            <option value="待安排">待安排</option>
+            <option value="已安排">已安排</option>
+            <option value="已通过">已通过</option>
+            <option value="未通过">未通过</option>
+            <option value="已取消">已取消</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="dialog-actions drawer-actions">
+        <button class="danger-btn" id="deleteInterviewCellBtn" type="button" hidden>删除记录</button>
+        <button class="danger-btn" id="deleteCompanyBtn" type="button" hidden>删除公司</button>
+        <span class="drawer-spacer"></span>
+        <button class="ghost-btn" id="cancelInterviewDialog" type="button">取消</button>
+        <button class="primary-btn" id="saveInterviewBtn" type="submit">保存</button>
       </div>
     </form>
   </dialog>

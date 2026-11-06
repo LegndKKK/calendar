@@ -22,7 +22,37 @@ CREATE TABLE IF NOT EXISTS events (
     updated_at TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_events_start ON events(start_at);
+
+CREATE TABLE IF NOT EXISTS companies (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT    NOT NULL UNIQUE,
+    info       TEXT    NOT NULL DEFAULT '',
+    created_at TEXT    NOT NULL,
+    updated_at TEXT    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS interview_stages (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    name     TEXT    NOT NULL UNIQUE,
+    position INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS interview_cells (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    stage      TEXT    NOT NULL,
+    link       TEXT    NOT NULL DEFAULT '',
+    content    TEXT    NOT NULL DEFAULT '',
+    status     TEXT    NOT NULL DEFAULT '待安排',
+    updated_at TEXT    NOT NULL,
+    UNIQUE(company_id, stage),
+    FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_interview_cells_company ON interview_cells(company_id);
 """
+
+DEFAULT_STAGES = ("HR 面", "一面", "二面", "三面", "终面", "Offer")
 
 _FIELDS = ("title", "start_at", "end_at", "all_day", "location", "notes")
 
@@ -40,10 +70,17 @@ class Store:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with closing(self._connect()) as conn, conn:
             conn.executescript(SCHEMA)
+            if conn.execute("SELECT COUNT(*) FROM interview_stages").fetchone()[0] == 0:
+                for position, name in enumerate(DEFAULT_STAGES):
+                    conn.execute(
+                        "INSERT INTO interview_stages (name, position) VALUES (?, ?)",
+                        (name, position),
+                    )
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, timeout=10)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
 
     def list_events(self, start: str | None = None, end: str | None = None) -> list[dict]:
@@ -132,3 +169,177 @@ class Store:
         with closing(self._connect()) as source, closing(sqlite3.connect(destination)) as target:
             source.backup(target)
             target.commit()
+
+    # ---------- 面试时间线 ----------
+
+    def list_interviews(self) -> dict:
+        with closing(self._connect()) as conn:
+            companies = [
+                dict(row)
+                for row in conn.execute(
+                    "SELECT id, name, info, created_at, updated_at FROM companies ORDER BY id"
+                )
+            ]
+            stages = [
+                dict(row)
+                for row in conn.execute(
+                    "SELECT id, name, position FROM interview_stages ORDER BY position, id"
+                )
+            ]
+            cells = [
+                dict(row)
+                for row in conn.execute(
+                    """
+                    SELECT id, company_id, stage, link, content, status, updated_at
+                      FROM interview_cells
+                     ORDER BY company_id, id
+                    """
+                )
+            ]
+        return {"companies": companies, "stages": stages, "cells": cells}
+
+    def get_company(self, company_id: int) -> dict | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT id, name, info, created_at, updated_at FROM companies WHERE id = ?",
+                (company_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def create_company(self, name: str, info: str = "") -> dict:
+        name = str(name).strip()
+        if not name:
+            raise ValueError("公司名称不能为空")
+        now = datetime.now().isoformat(timespec="seconds")
+        try:
+            with closing(self._connect()) as conn, conn:
+                cursor = conn.execute(
+                    """
+                    INSERT INTO companies (name, info, created_at, updated_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (name, str(info).strip(), now, now),
+                )
+                company_id = int(cursor.lastrowid)
+        except sqlite3.IntegrityError:
+            raise ValueError("公司名称已存在") from None
+        company = self.get_company(company_id)
+        assert company is not None
+        return company
+
+    def update_company(
+        self, company_id: int, name: str | None = None, info: str | None = None
+    ) -> dict | None:
+        existing = self.get_company(company_id)
+        if existing is None:
+            return None
+        new_name = existing["name"] if name is None else str(name).strip()
+        if not new_name:
+            raise ValueError("公司名称不能为空")
+        new_info = existing["info"] if info is None else str(info).strip()
+        now = datetime.now().isoformat(timespec="seconds")
+        try:
+            with closing(self._connect()) as conn, conn:
+                conn.execute(
+                    """
+                    UPDATE companies
+                       SET name = ?, info = ?, updated_at = ?
+                     WHERE id = ?
+                    """,
+                    (new_name, new_info, now, company_id),
+                )
+        except sqlite3.IntegrityError:
+            raise ValueError("公司名称已存在") from None
+        return self.get_company(company_id)
+
+    def delete_company(self, company_id: int) -> bool:
+        with closing(self._connect()) as conn, conn:
+            cursor = conn.execute("DELETE FROM companies WHERE id = ?", (company_id,))
+        return cursor.rowcount > 0
+
+    def get_stage(self, stage_id: int) -> dict | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT id, name, position FROM interview_stages WHERE id = ?",
+                (stage_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def create_stage(self, name: str) -> dict:
+        name = str(name).strip()
+        if not name:
+            raise ValueError("阶段名称不能为空")
+        now_position = 0
+        try:
+            with closing(self._connect()) as conn, conn:
+                now_position = conn.execute(
+                    "SELECT COALESCE(MAX(position), -1) + 1 FROM interview_stages"
+                ).fetchone()[0]
+                cursor = conn.execute(
+                    "INSERT INTO interview_stages (name, position) VALUES (?, ?)",
+                    (name, now_position),
+                )
+                stage_id = int(cursor.lastrowid)
+        except sqlite3.IntegrityError:
+            raise ValueError("阶段已存在") from None
+        stage = self.get_stage(stage_id)
+        assert stage is not None
+        return stage
+
+    def get_interview_cell(self, company_id: int, stage: str) -> dict | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                """
+                SELECT id, company_id, stage, link, content, status, updated_at
+                  FROM interview_cells
+                 WHERE company_id = ? AND stage = ?
+                """,
+                (company_id, stage),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def upsert_interview_cell(
+        self,
+        company_id: int,
+        stage: str,
+        link: str = "",
+        content: str = "",
+        status: str = "待安排",
+    ) -> dict:
+        stage = str(stage).strip()
+        now = datetime.now().isoformat(timespec="seconds")
+        with closing(self._connect()) as conn, conn:
+            company = conn.execute(
+                "SELECT 1 FROM companies WHERE id = ?", (company_id,)
+            ).fetchone()
+            if company is None:
+                raise ValueError("公司不存在")
+            stage_row = conn.execute(
+                "SELECT 1 FROM interview_stages WHERE name = ?", (stage,)
+            ).fetchone()
+            if stage_row is None:
+                raise ValueError("阶段不存在")
+            conn.execute(
+                """
+                INSERT INTO interview_cells
+                    (company_id, stage, link, content, status, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(company_id, stage) DO UPDATE SET
+                    link = excluded.link,
+                    content = excluded.content,
+                    status = excluded.status,
+                    updated_at = excluded.updated_at
+                """,
+                (company_id, stage, str(link).strip(), str(content).strip(), status, now),
+            )
+        cell = self.get_interview_cell(company_id, stage)
+        assert cell is not None
+        return cell
+
+    def delete_interview_cell(self, company_id: int, stage: str) -> bool:
+        with closing(self._connect()) as conn, conn:
+            cursor = conn.execute(
+                "DELETE FROM interview_cells WHERE company_id = ? AND stage = ?",
+                (company_id, stage),
+            )
+        return cursor.rowcount > 0

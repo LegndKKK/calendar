@@ -54,6 +54,42 @@ class StoreTests(unittest.TestCase):
         events = self.store.create_events([self._event("A"), self._event("B", "2026-11-08T09:00")])
         self.assertEqual(len(events), 2)
 
+    def test_interview_stages_are_seeded(self):
+        data = self.store.list_interviews()
+        names = [stage["name"] for stage in data["stages"]]
+        self.assertIn("HR 面", names)
+        self.assertIn("一面", names)
+        self.assertIn("Offer", names)
+
+    def test_interview_company_and_cell(self):
+        company = self.store.create_company("示例公司", "上海 / 后端")
+        self.store.upsert_interview_cell(
+            company["id"], "一面", "https://example.com", "问了项目", "已通过"
+        )
+
+        data = self.store.list_interviews()
+        self.assertEqual(len(data["companies"]), 1)
+        self.assertEqual(data["cells"][0]["content"], "问了项目")
+        self.assertEqual(data["cells"][0]["status"], "已通过")
+
+        updated = self.store.update_company(company["id"], info="新信息")
+        self.assertEqual(updated["info"], "新信息")
+
+        self.assertTrue(self.store.delete_interview_cell(company["id"], "一面"))
+        self.assertEqual(self.store.list_interviews()["cells"], [])
+
+    def test_duplicate_company_is_rejected(self):
+        self.store.create_company("重复公司")
+        with self.assertRaises(ValueError):
+            self.store.create_company("重复公司")
+
+    def test_delete_company_cascades_interview_cells(self):
+        company = self.store.create_company("待删公司")
+        self.store.upsert_interview_cell(company["id"], "HR 面", content="备注")
+
+        self.assertTrue(self.store.delete_company(company["id"]))
+        self.assertEqual(self.store.list_interviews()["cells"], [])
+
     def test_backup_contains_events(self):
         self.store.create_event(self._event())
         backup_path = Path(self.temp.name) / "backup.db"

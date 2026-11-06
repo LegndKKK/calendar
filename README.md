@@ -24,6 +24,7 @@ Local Calendar is a single-user, local-only tool. The packaged exe starts a loca
 - Manual create, edit, and delete
 - Delete from the agenda list or directly from the edit dialog
 - One-click backup export (ZIP with the SQLite database and events JSON, no API key)
+- Interview timeline board: companies × interview stages matrix with links, company info, notes, and status
 - OpenAI-compatible model API (DeepSeek, OpenAI, Moonshot, local Ollama, etc.)
 - Built-in rule-based parser for when no API key is configured
 - SQLite storage in the system user-data directory
@@ -105,6 +106,20 @@ To delete an event:
 - Open the event and use **Delete Event** in the edit dialog
 
 You can also select a day in the calendar and use the **+** button to add an event manually.
+
+### Interview timeline
+
+Switch to **Interview Timeline** in the top bar.
+
+- **Add Company** creates a new company column.
+- **Add Stage** adds a row. Default stages are `HR 面`, `一面`, `二面`, `三面`, `终面`, and `Offer`.
+- Click any cell to open the right-side panel. It stores:
+  - interview link
+  - company info (shared by all cells of that company)
+  - interview notes / questions / feedback
+  - status: pending, scheduled, passed, failed, cancelled
+- Click a company header to edit its name and info, or delete the company and all its records.
+- Each cell has its own delete action.
 
 ### Local fallback parser
 
@@ -204,6 +219,13 @@ Environment variables:
 | POST | `/api/events/bulk` | Create events in bulk |
 | PATCH | `/api/events/{id}` | Update an event |
 | DELETE | `/api/events/{id}` | Delete an event |
+| GET | `/api/interviews` | Read companies, stages, and cells |
+| POST | `/api/interviews/companies` | Add a company |
+| PATCH | `/api/interviews/companies/{id}` | Update a company |
+| DELETE | `/api/interviews/companies/{id}` | Delete a company and its cells |
+| POST | `/api/interviews/stages` | Add an interview stage |
+| PUT | `/api/interviews/cells` | Create or update a cell |
+| DELETE | `/api/interviews/cells?company_id=&stage=` | Delete a cell |
 | POST | `/api/parse` | Parse text without saving |
 | GET | `/api/backup` | Download a ZIP backup |
 | POST | `/api/shutdown` | Stop the local server |
@@ -228,6 +250,7 @@ MIT. See [LICENSE](LICENSE).
 - 手动新增、编辑、删除
 - 支持在日程列表中删除，也可在编辑弹窗中直接删除
 - 一键导出备份（ZIP：SQLite 数据库 + 日程 JSON，不含 API Key）
+- 面试时间线看板：公司 × 面试阶段表格，单元格可记录链接、公司信息、面试内容和状态
 - OpenAI 兼容接口（DeepSeek、OpenAI、Moonshot、本地 Ollama 等）
 - 未配置 API Key 时使用内置规则解析
 - SQLite 数据保存在系统盘的用户应用目录
@@ -309,6 +332,20 @@ python app.py
 - 打开日程，在编辑弹窗中点「删除日程」
 
 也可以点日历中的日期后，用右侧「＋」手动添加。
+
+### 面试时间线
+
+切换到顶部的「面试时间线」。
+
+- 「添加公司」：新增一列公司
+- 「添加阶段」：新增一行。默认阶段为 `HR 面`、`一面`、`二面`、`三面`、`终面`、`Offer`
+- 点击任意单元格，会在右侧弹出面板，可填写：
+  - 面试链接
+  - 公司信息（同一公司的所有单元格共享）
+  - 面试内容、问题、反馈
+  - 状态：待安排 / 已安排 / 已通过 / 未通过 / 已取消
+- 点击公司表头可修改公司名称、公司信息，或删除公司及其全部面试记录
+- 每个单元格有独立的「删除记录」按钮
 
 ### 本地规则解析
 
@@ -408,6 +445,13 @@ python app.py
 | POST | `/api/events/bulk` | 批量新增 |
 | PATCH | `/api/events/{id}` | 修改日程 |
 | DELETE | `/api/events/{id}` | 删除日程 |
+| GET | `/api/interviews` | 读取公司、阶段和单元格 |
+| POST | `/api/interviews/companies` | 新增公司 |
+| PATCH | `/api/interviews/companies/{id}` | 修改公司 |
+| DELETE | `/api/interviews/companies/{id}` | 删除公司及其面试记录 |
+| POST | `/api/interviews/stages` | 新增面试阶段 |
+| PUT | `/api/interviews/cells` | 新增或更新单元格 |
+| DELETE | `/api/interviews/cells?company_id=&stage=` | 删除单元格 |
 | POST | `/api/parse` | 自然语言解析（不落库） |
 | GET | `/api/backup` | 下载 ZIP 备份 |
 | POST | `/api/shutdown` | 停止本地服务 |

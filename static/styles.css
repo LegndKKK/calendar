@@ -139,6 +139,29 @@ button {
   gap: 10px;
 }
 
+.view-switch {
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--card);
+}
+
+.view-switch button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.view-switch button.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
 /* ---------- 按钮 ---------- */
 .icon-btn,
 .ghost-btn,
@@ -729,6 +752,253 @@ textarea:focus-visible,
   font-size: 12.5px;
 }
 
+/* ---------- 面试时间线 ---------- */
+.interview {
+  padding: 20px;
+}
+
+.interview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.interview-head h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.interview-head .muted {
+  margin: 0;
+  max-width: 640px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.interview-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.interview-table-wrap {
+  margin-top: 18px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  max-width: 100%;
+}
+
+.interview-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.interview-table th,
+.interview-table td {
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+
+.interview-table tr:last-child th,
+.interview-table tr:last-child td {
+  border-bottom: none;
+}
+
+.interview-table th:last-child,
+.interview-table td:last-child {
+  border-right: none;
+}
+
+.interview-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--card);
+}
+
+.interview-table .corner {
+  min-width: 108px;
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.company-col {
+  min-width: 150px;
+  padding: 0;
+}
+
+.company-head {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  min-height: 58px;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.company-head:hover {
+  background: var(--accent-soft);
+}
+
+.company-name {
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.company-snippet {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--faint);
+  font-size: 11.5px;
+}
+
+.stage-head {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 100px;
+  padding: 10px 12px;
+  background: var(--card-soft);
+  color: var(--muted);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.interview-table tbody td {
+  min-width: 150px;
+  height: 72px;
+  padding: 0;
+}
+
+.interview-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  min-height: 72px;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.interview-cell:hover {
+  background: var(--accent-soft);
+}
+
+.cell-status {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.cell-link {
+  padding: 0 6px;
+  border-radius: 5px;
+  background: rgba(14, 165, 233, 0.12);
+  color: #0369a1;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.cell-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.cell-plus {
+  color: var(--faint);
+  font-size: 18px;
+}
+
+.status-pending .cell-status {
+  background: var(--line);
+  color: var(--muted);
+}
+
+.status-scheduled .cell-status {
+  background: rgba(14, 165, 233, 0.14);
+  color: #0369a1;
+}
+
+.status-passed .cell-status {
+  background: rgba(16, 185, 129, 0.16);
+  color: #047857;
+}
+
+.status-failed .cell-status {
+  background: rgba(239, 68, 68, 0.14);
+  color: #b91c1c;
+}
+
+.status-cancelled .cell-status {
+  background: var(--line);
+  color: var(--faint);
+}
+
+.status-passed {
+  background: rgba(16, 185, 129, 0.045);
+}
+
+.status-failed {
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.interview-empty {
+  padding: 54px 10px;
+}
+
+.interview-scroll-hint {
+  display: none;
+  margin: 8px 2px 0;
+  font-size: 12px;
+}
+
+@media (max-width: 980px) {
+  .interview-scroll-hint {
+    display: block;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .cell-link,
+  .status-scheduled .cell-status {
+    color: #7dd3fc;
+  }
+
+  .status-passed .cell-status {
+    color: #6ee7b7;
+  }
+
+  .status-failed .cell-status {
+    color: #fca5a5;
+  }
+}
+
 /* ---------- 对话框 ---------- */
 .dialog {
   width: min(520px, calc(100% - 32px));
@@ -745,6 +1015,49 @@ textarea:focus-visible,
 .dialog::backdrop {
   background: rgba(15, 23, 42, 0.46);
   backdrop-filter: blur(3px);
+}
+
+.drawer-dialog {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(460px, 100%);
+  height: 100vh;
+  max-height: 100vh;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: -18px 0 50px rgba(15, 23, 42, 0.28);
+  overflow: auto;
+}
+
+.drawer-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(2px);
+}
+
+.drawer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  min-height: 100%;
+  padding: 22px;
+}
+
+.drawer-form .field textarea {
+  min-height: 90px;
+}
+
+.drawer-actions {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.drawer-spacer {
+  flex: 1;
 }
 
 .dialog-form {
@@ -792,8 +1105,19 @@ textarea:focus-visible,
   font-size: 14px;
 }
 
+.field select {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--card-soft);
+  color: var(--text);
+  font-size: 14px;
+}
+
 .field input:focus,
-.field textarea:focus {
+.field textarea:focus,
+.field select:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);

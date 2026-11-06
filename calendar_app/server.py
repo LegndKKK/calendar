@@ -22,6 +22,7 @@ from .event_utils import normalize_event, parse_datetime
 from .store import Store
 
 MAX_BODY = 2 * 1024 * 1024
+ALLOWED_INTERVIEW_STATUSES = {"待安排", "已安排", "已通过", "未通过", "已取消"}
 
 
 class ApiError(Exception):
@@ -29,6 +30,22 @@ class ApiError(Exception):
         super().__init__(message)
         self.status = status
         self.message = message
+
+
+def _required_text(value: object, label: str, max_length: int) -> str:
+    text = str(value or "").strip()
+    if not text:
+        raise ApiError(400, f"{label}不能为空")
+    if len(text) > max_length:
+        raise ApiError(400, f"{label}不能超过 {max_length} 字")
+    return text
+
+
+def _optional_text(value: object, label: str, max_length: int) -> str:
+    text = str(value or "").strip()
+    if len(text) > max_length:
+        raise ApiError(400, f"{label}不能超过 {max_length} 字")
+    return text
 
 
 def _json_bytes(value: object) -> bytes:
@@ -221,6 +238,93 @@ def create_server(
                 except ValueError as exc:
                     raise ApiError(400, str(exc)) from None
                 self._send_json({"events": store.list_events(start, end)})
+                return
+
+            if method == "GET" and path == "/api/interviews":
+                self._send_json(store.list_interviews())
+                return
+
+            if method == "POST" and path == "/api/interviews/companies":
+                body = self._json_body()
+                name = _required_text(body.get("name"), "公司名称", 100)
+                info = _optional_text(body.get("info"), "公司信息", 5000)
+                try:
+                    company = store.create_company(name, info)
+                except ValueError as exc:
+                    raise ApiError(400, str(exc)) from None
+                self._send_json({"company": company}, 201)
+                return
+
+            match = re.fullmatch(r"/api/interviews/companies/(\d+)", path)
+            if match:
+                company_id = int(match.group(1))
+                if method == "PATCH":
+                    body = self._json_body()
+                    name = None
+                    info = None
+                    if "name" in body:
+                        name = _required_text(body.get("name"), "公司名称", 100)
+                    if "info" in body:
+                        info = _optional_text(body.get("info"), "公司信息", 5000)
+                    try:
+                        company = store.update_company(company_id, name=name, info=info)
+                    except ValueError as exc:
+                        raise ApiError(400, str(exc)) from None
+                    if company is None:
+                        raise ApiError(404, "公司不存在")
+                    self._send_json({"company": company})
+                    return
+                if method == "DELETE":
+                    if not store.delete_company(company_id):
+                        raise ApiError(404, "公司不存在")
+                    self._send_json({"ok": True})
+                    return
+
+            if method == "POST" and path == "/api/interviews/stages":
+                body = self._json_body()
+                name = _required_text(body.get("name"), "阶段名称", 50)
+                try:
+                    stage = store.create_stage(name)
+                except ValueError as exc:
+                    raise ApiError(400, str(exc)) from None
+                self._send_json({"stage": stage}, 201)
+                return
+
+            if method == "PUT" and path == "/api/interviews/cells":
+                body = self._json_body()
+                try:
+                    company_id = int(body.get("company_id"))
+                except (TypeError, ValueError):
+                    raise ApiError(400, "公司 ID 无效") from None
+                stage = _required_text(body.get("stage"), "面试阶段", 50)
+                link = _optional_text(body.get("link"), "面试链接", 1000)
+                if link and not link.startswith(("http://", "https://")):
+                    raise ApiError(400, "面试链接必须以 http:// 或 https:// 开头")
+                content = _optional_text(body.get("content"), "面试内容", 5000)
+                status = str(body.get("status") or "待安排").strip()
+                if status not in ALLOWED_INTERVIEW_STATUSES:
+                    raise ApiError(400, "面试状态无效")
+                try:
+                    cell = store.upsert_interview_cell(
+                        company_id, stage, link, content, status
+                    )
+                except ValueError as exc:
+                    raise ApiError(400, str(exc)) from None
+                self._send_json({"cell": cell})
+                return
+
+            if method == "DELETE" and path == "/api/interviews/cells":
+                company_id = (query.get("company_id") or [None])[0]
+                stage = (query.get("stage") or [None])[0]
+                try:
+                    company_id = int(company_id)
+                except (TypeError, ValueError):
+                    raise ApiError(400, "公司 ID 无效") from None
+                if not stage:
+                    raise ApiError(400, "缺少面试阶段")
+                if not store.delete_interview_cell(company_id, stage):
+                    raise ApiError(404, "面试记录不存在")
+                self._send_json({"ok": True})
                 return
 
             if method == "POST" and path == "/api/parse":
